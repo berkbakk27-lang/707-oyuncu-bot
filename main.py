@@ -7,10 +7,10 @@ from threading import Thread
 from datetime import datetime
 import asyncio
 
-# --- 7/24 AKTİF TUTMA (RENDER) ---
+# --- 7/24 AKTİF TUTMA ---
 app = Flask('')
 @app.route('/')
-def home(): return "707 Sistemi Aktif!"
+def home(): return "707 Bot Sistemi Aktif!"
 def run_flask(): app.run(host='0.0.0.0', port=8080)
 def keep_alive(): Thread(target=run_flask).start()
 
@@ -25,7 +25,7 @@ DUYURU_KANAL_ID = 1491175628354097314
 
 last_status = None
 
-# --- TICKET SİSTEMİ ALTYAPISI ---
+# --- TICKET GÖRÜNÜMÜ ---
 class TicketView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -39,7 +39,7 @@ class TicketView(discord.ui.View):
         await interaction.response.send_message(f"✅ Biletin açıldı: {channel.mention}", ephemeral=True)
         await channel.send(f"👋 {interaction.user.mention} Hoş geldin! Kapatmak için: `!kapat` yazabilirsin.")
 
-# --- OTOMATİK DURUM DENETLEYİCİ ---
+# --- OTOMATİK DURUM ---
 @tasks.loop(seconds=60)
 async def check_server_status():
     global last_status
@@ -49,6 +49,7 @@ async def check_server_status():
         r = requests.get(f"http://{FIVEM_IP}/info.json", timeout=5)
         current_status = "online" if r.status_code == 200 else "offline"
     except: current_status = "offline"
+    
     if last_status is not None and current_status != last_status:
         if current_status == "online":
             embed = discord.Embed(title="✅ PROJECT GUN AKTİF", color=0x2ecc71, timestamp=datetime.now())
@@ -57,18 +58,18 @@ async def check_server_status():
         await channel.send(embed=embed)
     last_status = current_status
 
-# --- TÜM KOMUTLAR ---
+# --- KOMUTLAR ---
 @bot.command()
 async def botyardım(ctx):
     embed = discord.Embed(title="🤖 707 Komut Paneli", color=0xf1c40f, timestamp=datetime.now())
-    embed.add_field(name="🚀 Sunucu", value="`!sunucu` : Detaylı durum.\n`!oyuncusayi` : Sadece sayı.", inline=False)
-    embed.add_field(name="🎫 Destek", value="`!ticket` : Butonu kurar.\n`!kapat` : Bileti siler.", inline=False)
-    embed.add_field(name="🛠️ Genel", value="`!clear [sayı]` : Mesaj siler.\n`!steam [isim]` : Profil arar.", inline=False)
+    embed.add_field(name="🚀 Sunucu", value="`!sunucu` : Oyuncu listesi ve saat.\n`!oyuncusayi` : Sadece aktif sayısı.", inline=False)
+    embed.add_field(name="🎫 Destek", value="`!ticket` : Butonu kurar.\n`!kapat` : Bilet kanalını siler.", inline=False)
+    embed.add_field(name="🛠️ Genel", value="`!clear [sayı]` : Mesaj siler.\n`!steam [isim]` : Steam'de arama yapar.", inline=False)
     await ctx.send(embed=embed)
 
 @bot.command()
 async def ticket(ctx):
-    embed = discord.Embed(title="🎫 DESTEK SİSTEMİ", description="Bilet açmak için tıkla.", color=0x3498db)
+    embed = discord.Embed(title="🎫 DESTEK SİSTEMİ", description="Yetkililerle görüşmek için aşağıdaki butona tıklayın.", color=0x3498db)
     await ctx.send(embed=embed, view=TicketView())
 
 @bot.command()
@@ -79,10 +80,11 @@ async def sunucu(ctx):
         players.sort(key=lambda x: x['id'])
         msg = "".join([f"**{i}.** `ID: {p['id']}` - **{p['name']}**\n" for i, p in enumerate(players[:20], 1)])
         su_an = datetime.now().strftime("%H:%M:%S")
+        
         embed = discord.Embed(title="🚀 PROJECT GUN DURUM", color=0x2ecc71, timestamp=datetime.now())
         embed.add_field(name="👥 Aktif", value=str(len(players)), inline=True)
         embed.add_field(name="🕒 Saat", value=su_an, inline=True)
-        embed.add_field(name="📜 Oyuncular", value=msg or "Boş", inline=False)
+        embed.add_field(name="📜 Oyuncular (İlk 20)", value=msg or "Şu an kimse yok.", inline=False)
         await ctx.send(embed=embed)
     except: await ctx.send("⚠️ Sunucuya ulaşılamadı!")
 
@@ -90,8 +92,8 @@ async def sunucu(ctx):
 async def oyuncusayi(ctx):
     try:
         r = requests.get(f"http://{FIVEM_IP}/players.json", timeout=5)
-        await ctx.send(f"🚀 **PROJECT GUN** | Şu an sunucuda **{len(r.json())}** kişi var.")
-    except: await ctx.send("⚠️ Hata!")
+        await ctx.send(f"🚀 **PROJECT GUN** | Şu an sunucuda **{len(r.json())}** aktif oyuncu var.")
+    except: await ctx.send("⚠️ Veri alınamadı.")
 
 @bot.command()
 async def kapat(ctx):
@@ -104,7 +106,7 @@ async def kapat(ctx):
 async def clear(ctx, miktar: int = 10):
     if ctx.author.guild_permissions.manage_messages:
         await ctx.channel.purge(limit=miktar + 1)
-        await ctx.send(f"✅ {miktar} mesaj silindi.", delete_after=3)
+        await ctx.send(f"✅ {miktar} mesaj temizlendi.", delete_after=3)
 
 @bot.command()
 async def steam(ctx, *, isim: str):
@@ -113,9 +115,10 @@ async def steam(ctx, *, isim: str):
 
 @bot.event
 async def on_ready():
-    print(f'✅ {bot.user.name} AKTİF!')
+    print(f'✅ {bot.user.name} AKTİF VE HAZIR!')
     bot.add_view(TicketView())
-    if not check_server_status.is_running(): check_server_status.start()
+    if not check_server_status.is_running():
+        check_server_status.start()
     await bot.change_presence(activity=discord.Streaming(name="!botyardım", url="https://twitch.tv/707"))
 
 if __name__ == "__main__":
